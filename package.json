@@ -1,0 +1,19 @@
+{
+  "name": "websocket_ui_client",
+  "version": "0.0.1",
+  "description": "Simple UI to connect, send and recive websocket data.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "websocket",
+    "ws"
+  ],
+  "author": "Andreas Grip",
+  "license": "ISC",
+  "dependencies": {
+    "electron": "^10.1.3"
+  }
+}

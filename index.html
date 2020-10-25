@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Websocket Client</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        const app = {}; //The entire app
+        app.instances = []; //think each server/channel tab
+        app.activeInstance = {};
+        app.instances.push(app.activeInstance);
+
+        document.addEventListener("DOMContentLoaded", function () {
+            app.activeInstance.terminalDiv = document.getElementById('pagecontentsdata');
+            app.activeInstance.commandlineDiv = document.getElementById('commandline');
+            app.statusDiv = document.getElementById('statusline');
+            commandlineImpretor = new CommandlineImpretor(app.activeInstance.commandlineDiv, app.activeInstance.terminalDiv, app.statusDiv);
+            app.activeInstance.commandlineDiv.commandlineImpretor = commandlineImpretor;
+        })
+
+
+
+        class CommandlineImpretor {
+            constructor(commandlineDiv, terminalDiv, statusDiv) {
+                this.history = [];
+                this.commandHistory = [];
+                this.preHistory = [];
+                this.preCommandHistory = [];
+                this.language = 'en';
+                this.commandlineDiv = commandlineDiv;
+                this.terminalDiv = terminalDiv;
+                this.commandlineDiv.addEventListener('keydown', function (event) { this.commandlineImpretor.onCommandLineKeyPress(event) });
+                this.status;
+                this.statusDiv = statusDiv;
+                this.ws;
+            }
+            terminalAdd(text, classes = []) {
+                // If classes is set but is not an array, make it into an array.
+                if(classes) {
+                    if(!Array.isArray(classes)) {
+                        let new_classes = [];
+                        new_classes[0] = classes;
+                        classes = new_classes;
+                    }
+                }
+                const divToAppend = document.createElement("div");
+                classes.forEach(element => {
+                    divToAppend.classList.add(element);
+                });
+                const textNode = document.createTextNode(text);
+                divToAppend.appendChild(textNode);
+                this.terminalDiv.appendChild(divToAppend);
+                return (divToAppend);
+            }
+            commandLineInput(text) {
+                this.history.push(text);
+                if (/^\//.test(text)) {
+                    console.log('Command recived');
+                    this.runCommand(text);
+                } else {
+                    console.log('text recived');
+                    if (this.ws && this.ws.readyState && this.ws.readyState === this.ws.OPEN) {
+                        this.ws.send(text)
+                        this.terminalAdd('> ' + text);
+                    }
+                }
+            }
+            statusUpdate(status) {
+                this.status = status;
+                this.statusDiv.innerText = this.status;
+            }
+            runCommand(text) {
+                const regEx = /^\/(\w+)(\s(\S*))?/
+                const commandSplit = text.match(regEx);
+                switch (commandSplit[1].toLowerCase()) {
+                    case 'connect':
+                        let wsURLarray = commandSplit[3].match(/^([wW][sS]{1,2})?(:\/+)?(\w*.*)/);
+                        let protocol = (/^[wW][sS]{1,2}/).test(wsURLarray[0]) ? wsURLarray[0] : 'ws';
+                        let URL = (/^[wW][sS]{1,2}/).test(wsURLarray[0]) ? wsURLarray[2] : wsURLarray[0];
+                        let wsURL = protocol + '://' + URL;
+                        this.ws = new WebSocket(wsURL);
+                        this.ws.onopen = () => {
+                            this.statusUpdate('Connected');
+                            this.terminalAdd('Connected to ' + this.ws.url, 'pagecontents_command');
+                        }
+                        this.ws.onclose = () => {
+                            this.statusUpdate('Disconnected');
+                            this.terminalAdd('Disconnected ' + this.ws.url, 'pagecontents_command');
+
+                        }
+                        this.ws.onmessage = (evt) => {
+                            const message = '< ' + evt.data;
+                            this.terminalAdd(message);
+                        };
+
+                        break;
+                    case 'disconnect':
+                        this.ws.close();
+                        break;
+
+
+                    default:
+                }
+            }
+            onCommandLineKeyPress(event) {
+                if (ifSpecialKey(event)) {
+                    event.preventDefault(); // Prevent newline on commandline
+                    console.log(event.type);
+                    switch (event.which || event.keyCode) {
+                        case 13: // enter
+                            console.log(this.commandlineDiv.innerText);
+                            this.commandLineInput(this.commandlineDiv.innerText);
+                            this.commandlineDiv.innerText = "";
+                            break;
+                        case 38: // arrow up
+                            if (this.history.length > 0) {
+                                if (this.commandlineDiv.innerText) {
+                                    this.preHistory.push(this.commandlineDiv.innerText);
+                                }
+                                this.commandlineDiv.innerText = this.history.pop();
+                            }
+                            break;
+                        case 40: // arrow down
+                            if (this.preHistory.length > 0) {
+                                if (this.commandlineDiv.innerText) {
+                                    this.history.push(this.commandlineDiv.innerText);
+                                }
+                                this.commandlineDiv.innerText = this.preHistory.pop();
+                                break;
+                            }
+                        default:
+                    }
+                }
+            }
+        }
+
+
+        // This will run whenever commandline get focus and move the cursor to the end of the line.
+        function commandEOL() {
+            if (this.childNodes.length > 0) {
+                const range = document.createRange();
+                const selection = window.getSelection();
+                range.setStart(this.lastChild, this.lastChild.length);
+                range.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+        }
+
+        function ifSpecialKey(event) {
+            switch (event.which || event.keyCode) {
+                case 13: // enter
+                case 38: // arrow up
+                case 40: // arrow down
+                    return true;
+                    break;
+                default:
+                    return false;
+            }
+        };
+    </script>
+</head>
+
+<body>
+    <div class="pagecontainer">
+        <!-- Body of page (center take up all remaining space) -->
+        <div class="pagebody">
+            <div class="pagecontents">
+                <div id="pagecontentsdata" class="pagecontentsdata">Type /connect url to connect<br>Example:<br>/connect
+                    ws://127.0.0.1/wstest<br>/connect 127.0.0.1/test<br>/connect 127.0.0.1:8054/test<br><br>Incomming
+                    data will have < before<br>Outgoing data will have > before</div>
+                <div id="commandline" class="commandline" contentEditable="true" onfocus="commandEOL.call(this)"></div>
+            </div>
+        </div>
+        <!-- Foot of page (statusline at the end) -->
+        <div id="statusline" class="pagefooter">
+            Disconnected..
+        </div>
+    </div>
+    <script>
+        require('./renderer.js')
+    </script>
+</body>
+
+</html>
