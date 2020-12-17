@@ -7,9 +7,11 @@
     <link rel="stylesheet" href="style.css">
     <script>
         const app = {}; //The entire app
-        app.instances = []; //think each server/channel tab
-        app.activeInstance = {};
-        app.instances.push(app.activeInstance);
+        document.app = app; // Attach the app to the document to avoid any garbage collection
+        app.instances = []; // think each server/channel tab
+        app.activeInstance = {}; // Create the first instance
+        app.instances.push(app.activeInstance); // add the first instance to the instance list
+        app.ipc = {} // All IPC functions created by renderer.js will be here
 
         document.addEventListener("DOMContentLoaded", function () {
             app.activeInstance.terminalDiv = document.getElementById('pagecontentsdata');
@@ -17,8 +19,38 @@
             app.statusDiv = document.getElementById('statusline');
             commandlineImpretor = new CommandlineImpretor(app.activeInstance.commandlineDiv, app.activeInstance.terminalDiv, app.statusDiv);
             app.activeInstance.commandlineDiv.commandlineImpretor = commandlineImpretor;
-        })
+            app.activeInstance.commandlineImpretor = commandlineImpretor;
+            app.activeInstance.id = 'main';
 
+            const newHeight = window.innerHeight - document.getElementsByClassName("pagefooter")[0].clientHeight;
+            document.getElementsByClassName("pagecontents")[0].style.height = newHeight + 'px';
+        })
+        window.onload = () => {
+            const targetNode = document.getElementById("pagecontentsdata");
+            const config = { attributes: true, childList: true, subtree: true };
+            // Callback function to execute when mutations are observed
+            const callback = function (mutationsList, observer) {
+                for (const mutation of mutationsList) {
+                    if (mutation.type === 'childList') {
+                        console.log('A child node has been added or removed.');
+                        document.getElementById("pagecontentsdata").lastElementChild.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
+                    }
+                    else if (mutation.type === 'attributes') {
+                        console.log('The ' + mutation.attributeName + ' attribute was modified.');
+                    }
+                }
+            };
+            // Create an observer instance linked to the callback function
+            const observer = new MutationObserver(callback);
+            // Start observing the target node for configured mutations
+            observer.observe(targetNode, config);
+
+            //make sure the maindata window have a correct width.
+            window.addEventListener("resize", () => {
+                const newHeight = window.innerHeight - document.getElementsByClassName("pagefooter")[0].clientHeight;
+                document.getElementsByClassName("pagecontents")[0].style.height = newHeight + 'px';
+            });
+        }
 
 
         class CommandlineImpretor {
@@ -37,8 +69,8 @@
             }
             terminalAdd(text, classes = []) {
                 // If classes is set but is not an array, make it into an array.
-                if(classes) {
-                    if(!Array.isArray(classes)) {
+                if (classes) {
+                    if (!Array.isArray(classes)) {
                         let new_classes = [];
                         new_classes[0] = classes;
                         classes = new_classes;
@@ -54,16 +86,22 @@
                 return (divToAppend);
             }
             commandLineInput(text) {
-                this.history.push(text);
-                if (/^\//.test(text)) {
-                    console.log('Command recived');
-                    this.runCommand(text);
-                } else {
-                    console.log('text recived');
-                    if (this.ws && this.ws.readyState && this.ws.readyState === this.ws.OPEN) {
-                        this.ws.send(text)
-                        this.terminalAdd('> ' + text);
-                    }
+                switch (true) {
+                    case !!(/^$/.test(text)):
+                        // Break if empty, ignore those commands.
+                        break;
+                    case !!(/^\//.test(text)):
+                        console.log('Command recived');
+                        this.runCommand(text);
+                        this.history.push(text);
+                        break;
+                    default:
+                        console.log('text recived');
+                        if (this.ws && this.ws.readyState && this.ws.readyState === this.ws.OPEN) {
+                            this.ws.send(text)
+                            this.terminalAdd('> ' + text, 'pagecontents_outbound');
+                        }
+                        this.history.push(text);
                 }
             }
             statusUpdate(status) {
@@ -90,16 +128,34 @@
 
                         }
                         this.ws.onmessage = (evt) => {
-                            const message = '< ' + evt.data;
-                            this.terminalAdd(message);
+                            switch (true) {
+                                case !!evt.data.match(/^pong\(.*\)/):
+                                    let pongvalue = evt.data.match(/^pong\((.*)\)/)[1];
+                                    let pingTime = (new Date()) - (new Date(pongvalue));
+                                    this.terminalAdd('Ping to server: ' + pingTime + 'ms', 'pagecontents_command');
+                                    break;
+                                default:
+                                    const message = '< ' + evt.data;
+                                    this.terminalAdd(message, 'pagecontents_inbound');
+                            }
                         };
 
+                        break;
+                    case 'ping':
+                        this.ws.send("ping(" + new Date().toISOString() + ")");
                         break;
                     case 'disconnect':
                         this.ws.close();
                         break;
-
-
+                    case 'quit':
+                        app.ipc.sendQuit();
+                        break;
+                    case 'save':
+                        app.ipc.sendSave();
+                        break;
+                    case 'load':
+                        app.ipc.sendLoad();
+                        break;
                     default:
                 }
             }
@@ -114,20 +170,24 @@
                             this.commandlineDiv.innerText = "";
                             break;
                         case 38: // arrow up
+                            if (this.commandlineDiv.innerText) {
+                                this.preHistory.push(this.commandlineDiv.innerText);
+                            }
                             if (this.history.length > 0) {
-                                if (this.commandlineDiv.innerText) {
-                                    this.preHistory.push(this.commandlineDiv.innerText);
-                                }
                                 this.commandlineDiv.innerText = this.history.pop();
+                            } else {
+                                this.commandlineDiv.innerText = '';
                             }
                             break;
                         case 40: // arrow down
+                            if (this.commandlineDiv.innerText) {
+                                this.history.push(this.commandlineDiv.innerText);
+                            }
                             if (this.preHistory.length > 0) {
-                                if (this.commandlineDiv.innerText) {
-                                    this.history.push(this.commandlineDiv.innerText);
-                                }
                                 this.commandlineDiv.innerText = this.preHistory.pop();
                                 break;
+                            } else {
+                                this.commandlineDiv.innerText = '';
                             }
                         default:
                     }
