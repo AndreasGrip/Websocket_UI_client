@@ -93,6 +93,8 @@
                     case !!(/^\//.test(text)):
                         console.log('Command recived');
                         this.runCommand(text);
+                        this.history.push(...this.preHistory);
+                        this.preHistory = [];
                         this.history.push(text);
                         break;
                     default:
@@ -101,9 +103,12 @@
                             this.ws.send(text)
                             this.terminalAdd('> ' + text, 'pagecontents_outbound');
                         }
+                        this.history.push(...this.preHistory);
+                        this.preHistory = [];
                         this.history.push(text);
                 }
             }
+            // This will set the status as well as show it in the gui.
             statusUpdate(status) {
                 this.status = status;
                 this.statusDiv.innerText = this.status;
@@ -207,7 +212,7 @@
                 selection.addRange(range);
             }
         }
-
+        // Return true if pressed key is any of specified special keys.
         function ifSpecialKey(event) {
             switch (event.which || event.keyCode) {
                 case 13: // enter
@@ -227,9 +232,15 @@
         <!-- Body of page (center take up all remaining space) -->
         <div class="pagebody">
             <div class="pagecontents">
-                <div id="pagecontentsdata" class="pagecontentsdata">Type /connect url to connect<br>Example:<br>/connect
-                    ws://127.0.0.1/wstest<br>/connect 127.0.0.1/test<br>/connect 127.0.0.1:8054/test<br><br>Incomming
-                    data will have < before<br>Outgoing data will have > before</div>
+                <div id="pagecontentsdata" class="pagecontentsdata">Type /connect url to connect<br>
+                    Example:<br>
+                    /connect ws://127.0.0.1/wstest<br>
+                    /connect 127.0.0.1/test<br>
+                    /connect 127.0.0.1:8054/test<br>
+                    <br>
+                    Incomming data will have < before<br>
+                        Outgoing data will have > before
+                </div>
                 <div id="commandline" class="commandline" contentEditable="true" onfocus="commandEOL.call(this)"></div>
             </div>
         </div>
