@@ -8,6 +8,10 @@
     "build": "node_modules\\.bin\\electron-packager . Websocket_UI_client --all",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AndreasGrip/Websocket_UI_client.git"
+  },
   "keywords": [
     "websocket",
     "ws",
@@ -15,7 +19,7 @@
     "websocket-gui"
   ],
   "author": "Andreas Grip",
-  "license": "ISC",
+  "license": "GPL-3.0-or-later",
   "dependencies": {
     "electron": "^10.1.3"
   },
