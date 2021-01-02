@@ -18,6 +18,7 @@
             app.activeInstance.commandlineDiv = document.getElementById('commandline');
             app.statusDiv = document.getElementById('statusline');
             commandlineImpretor = new CommandlineImpretor(app.activeInstance.commandlineDiv, app.activeInstance.terminalDiv, app.statusDiv);
+            commandlineImpretor.runCommand('load');
             app.activeInstance.commandlineDiv.commandlineImpretor = commandlineImpretor;
             app.activeInstance.commandlineImpretor = commandlineImpretor;
             app.activeInstance.id = 'main';
@@ -114,9 +115,10 @@
                 this.statusDiv.innerText = this.status;
             }
             runCommand(text) {
-                const regEx = /^\/(\w+)(\s(\S*))?/
+                // const regEx = /^\/(\w+)(\s(\S*))?/
+                const regEx = /^\/?(\w+)(\s(\S*))?/;
                 const commandSplit = text.match(regEx);
-                switch (commandSplit[1].toLowerCase()) {
+                switch (commandSplit && commandSplit[1] && commandSplit[1].toLowerCase()) {
                     case 'connect':
                         let wsURLarray = commandSplit[3].match(/^([wW][sS]{1,2})?(:\/+)?(\w*.*)/);
                         let protocol = (/^[wW][sS]{1,2}/).test(wsURLarray[0]) ? wsURLarray[0] : 'ws';
@@ -191,7 +193,6 @@
                             }
                             if (this.preHistory.length > 0) {
                                 this.commandlineDiv.innerText = this.preHistory.pop();
-                                break;
                             } else {
                                 this.commandlineDiv.innerText = '';
                             }

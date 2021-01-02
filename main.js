@@ -1,9 +1,10 @@
 const { dialog, ipcMain, app, BrowserWindow } = require('electron');
 const fs = require('fs').promises;
+let mainWindow;
 
 function createWindow() {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1600,
     height: 600,
     webPreferences: {
@@ -20,7 +21,7 @@ function createWindow() {
 }
 
 ipcMain.on('quit', (event, arg) => {
-  app.quit();
+  quitApp();
 });
 
 ipcMain.on('save', (event, arg) => {
@@ -52,7 +53,7 @@ app.on('ready', createWindow);
 // explicitly with Cmd + Q.
 app.on('window-all-closed', function () {
   if (process.platform !== 'darwin') {
-    app.quit();
+    quitApp();
   }
 });
 
@@ -63,3 +64,13 @@ app.on('activate', function () {
     createWindow();
   }
 });
+
+function quitApp() {
+  // ipcMain.send('runCommand','save');
+  mainWindow.webContents.send('runCommand', 'save');
+  // Wait 0.5s to allow saving to finish.
+  // TODO Fix so this actually await saving to finish.
+  setTimeout(() => {
+    app.quit();
+  }, 500)
+}

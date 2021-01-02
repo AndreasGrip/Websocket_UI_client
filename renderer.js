@@ -39,6 +39,11 @@ ipcRenderer.on('sendLoadReply', (event, arg) => {
   }
 });
 
+ipcRenderer.on('runCommand', (event, arg) => {
+  console.log(arg);
+  app.activeInstance.commandlineImpretor.runCommand(arg);
+})
+
 ipcRenderer.on('app-event', (event, arg) => {
   console.log('sko');
   app.activeInstance.commandlineImpretor.terminalAdd(arg, 'pagecontents_app-event');
