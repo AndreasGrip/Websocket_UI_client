@@ -24,6 +24,19 @@ app.ipc.sendLoad = () => {
 ipcRenderer.on('sendLoadReply', (event, arg) => {
   console.log(arg);
   app.activeInstance.commandlineImpretor.terminalAdd(arg, 'pagecontents_app-event');
+  let loaded = JSON.parse(arg);
+  for (let i = 0; i < app.instances.length; i++) {
+    const element = app.instances[i];
+    const match = loaded.filter((a) => a.id === element.id);
+    loaded = loaded.filter((a) => a.id !== element.id);
+    if (match) {
+      element.commandlineImpretor.history = match[0].history ? match[0].history : [];
+      element.commandlineImpretor.preHistory = match[0].preHistory ? match[0].preHistory : [];
+    } else {
+      element.commandlineImpretor.history = [];
+      element.commandlineImpretor.preHistory = [];
+    }
+  }
 });
 
 ipcRenderer.on('app-event', (event, arg) => {
