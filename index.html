@@ -183,6 +183,7 @@
                             } else {
                                 this.commandlineDiv.innerText = '';
                             }
+                            commandEOL.call(this.commandlineDiv);
                             break;
                         case 40: // arrow down
                             if (this.commandlineDiv.innerText) {
@@ -194,6 +195,8 @@
                             } else {
                                 this.commandlineDiv.innerText = '';
                             }
+                            commandEOL.call(this.commandlineDiv);
+                            break;
                         default:
                     }
                 }
