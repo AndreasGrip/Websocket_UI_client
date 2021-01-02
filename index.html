@@ -93,10 +93,13 @@
                         break;
                     case !!(/^\//.test(text)):
                         console.log('Command recived');
-                        this.runCommand(text);
                         this.history.push(...this.preHistory);
                         this.preHistory = [];
-                        this.history.push(text);
+                        // Don't save those commands in history.
+                        if (!/^\/(quit|load|save)/.test(text)) {
+                            this.history.push(text);
+                        }
+                        this.runCommand(text);
                         break;
                     default:
                         console.log('text recived');
