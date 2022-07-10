@@ -72,5 +72,5 @@ function quitApp() {
   // TODO Fix so this actually await saving to finish.
   setTimeout(() => {
     app.quit();
-  }, 500)
+  }, 500);
 }
