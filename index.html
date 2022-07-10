@@ -1,302 +1,297 @@
 <!DOCTYPE html>
 <html>
-
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <title>Websocket Client</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css" />
     <script>
-        const app = {}; //The entire app
-        document.app = app; // Attach the app to the document to avoid any garbage collection
-        app.instances = []; // think each server/channel tab
-        app.activeInstance = {}; // Create the first instance
-        app.instances.push(app.activeInstance); // add the first instance to the instance list
-        app.ipc = {} // All IPC functions created by renderer.js will be here
+      const app = {}; //The entire app
+      document.app = app; // Attach the app to the document to avoid any garbage collection
+      app.instances = []; // think each server/channel tab
+      app.activeInstance = {}; // Create the first instance
+      app.instances.push(app.activeInstance); // add the first instance to the instance list
+      app.ipc = {}; // All IPC functions created by renderer.js will be here
 
-        document.addEventListener("DOMContentLoaded", function () {
-            app.activeInstance.terminalDiv = document.getElementById('pagecontentsdata');
-            app.activeInstance.commandlineDiv = document.getElementById('commandline');
-            app.statusDiv = document.getElementById('statusline');
-            commandlineImpretor = new CommandlineImpretor(app.activeInstance.commandlineDiv, app.activeInstance.terminalDiv, app.statusDiv);
-            commandlineImpretor.runCommand('load');
-            app.activeInstance.commandlineDiv.commandlineImpretor = commandlineImpretor;
-            app.activeInstance.commandlineImpretor = commandlineImpretor;
-            app.activeInstance.id = 'main';
+      document.addEventListener('DOMContentLoaded', function () {
+        app.activeInstance.terminalDiv = document.getElementById('pagecontentsdata');
+        app.activeInstance.commandlineDiv = document.getElementById('commandline');
+        app.statusDiv = document.getElementById('statusline');
+        commandlineImpretor = new CommandlineImpretor(app.activeInstance.commandlineDiv, app.activeInstance.terminalDiv, app.statusDiv);
+        commandlineImpretor.runCommand('load');
+        app.activeInstance.commandlineDiv.commandlineImpretor = commandlineImpretor;
+        app.activeInstance.commandlineImpretor = commandlineImpretor;
+        app.activeInstance.id = 'main';
 
-            const newHeight = window.innerHeight - document.getElementsByClassName("pagefooter")[0].clientHeight;
-            document.getElementsByClassName("pagecontents")[0].style.height = newHeight + 'px';
-        })
-        window.onload = () => {
-            const targetNode = document.getElementById("pagecontentsdata");
-            const config = { attributes: true, childList: true, subtree: true };
-            // Callback function to execute when mutations are observed
-            const callback = function (mutationsList, observer) {
-                for (const mutation of mutationsList) {
-                    if (mutation.type === 'childList') {
-                        console.log('A child node has been added or removed.');
-                        document.getElementById("pagecontentsdata").lastElementChild.scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
-                    }
-                    else if (mutation.type === 'attributes') {
-                        console.log('The ' + mutation.attributeName + ' attribute was modified.');
-                    }
-                }
-            };
-            // Create an observer instance linked to the callback function
-            const observer = new MutationObserver(callback);
-            // Start observing the target node for configured mutations
-            observer.observe(targetNode, config);
-
-            //make sure the maindata window have a correct width.
-            window.addEventListener("resize", () => {
-                const newHeight = window.innerHeight - document.getElementsByClassName("pagefooter")[0].clientHeight;
-                document.getElementsByClassName("pagecontents")[0].style.height = newHeight + 'px';
-            });
-        }
-
-
-        class CommandlineImpretor {
-            constructor(commandlineDiv, terminalDiv, statusDiv) {
-                this.history = [];
-                this.commandHistory = [];
-                this.preHistory = [];
-                this.preCommandHistory = [];
-                this.language = 'en';
-                this.commandlineDiv = commandlineDiv;
-                this.terminalDiv = terminalDiv;
-                this.commandlineDiv.addEventListener('keydown', function (event) { this.commandlineImpretor.onCommandLineKeyPress(event) });
-                this.status;
-                this.statusDiv = statusDiv;
-                this.ws;
+        const newHeight = window.innerHeight - document.getElementsByClassName('pagefooter')[0].clientHeight;
+        document.getElementsByClassName('pagecontents')[0].style.height = newHeight + 'px';
+      });
+      window.onload = () => {
+        const targetNode = document.getElementById('pagecontentsdata');
+        const config = { attributes: true, childList: true, subtree: true };
+        // Callback function to execute when mutations are observed
+        const callback = function (mutationsList, observer) {
+          for (const mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+              console.log('A child node has been added or removed.');
+              document.getElementById('pagecontentsdata').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
+            } else if (mutation.type === 'attributes') {
+              console.log('The ' + mutation.attributeName + ' attribute was modified.');
             }
-            terminalAdd(text, classes = []) {
-                // If classes is set but is not an array, make it into an array.
-                if (classes) {
-                    if (!Array.isArray(classes)) {
-                        let new_classes = [];
-                        new_classes[0] = classes;
-                        classes = new_classes;
-                    }
-                }
-                const divToAppend = document.createElement("div");
-                classes.forEach(element => {
-                    divToAppend.classList.add(element);
-                });
-                const textNode = document.createTextNode(text);
-                divToAppend.appendChild(textNode);
-                this.terminalDiv.appendChild(divToAppend);
-                return (divToAppend);
-            }
-            commandLineInput(text) {
-                switch (true) {
-                    case !!(/^$/.test(text)):
-                        // Break if empty, ignore those commands.
-                        break;
-                    case !!(/^\//.test(text)):
-                        console.log('Command recived');
-                        this.history.push(...this.preHistory);
-                        this.preHistory = [];
-                        // Don't save those commands in history.
-                        if (!/^\/(quit|load|save)/.test(text)) {
-                            this.history.push(text);
-                        }
-                        this.runCommand(text);
-                        break;
-                    default:
-                        console.log('text recived');
-                        if (this.ws && this.ws.readyState && this.ws.readyState === this.ws.OPEN) {
-                            this.ws.send(text)
-                            this.terminalAdd('> ' + text, 'pagecontents_outbound');
-                        }
-                        this.history.push(...this.preHistory);
-                        this.preHistory = [];
-                        this.history.push(text);
-                }
-            }
-            // This will set the status as well as show it in the gui.
-            statusUpdate(status) {
-                this.status = status;
-                this.statusDiv.innerText = this.status;
-            }
-            runCommand(text) {
-                // const regEx = /^\/(\w+)(\s(\S*))?/
-                const regEx = /^\/?(\w+)\s?(.*)?/;
-                // 'command 1 2 3 4 5'
-                // commandSplit[0] entire string. 'command 1 2 3 4 5'
-                // commandSplit[1] 'command'
-                // commandSplit[2] ' 1 2 3 4 5'
-                // commandSplit[3] '1 2 3 4 5'
-                // commandSplit[4] '1'
-                // arguents[0] '1'
-                // arguents[1] '2'
-                // arguents[2] '3'
-                // arguents[3] '4'
-                // arguents[4] '5'
-
-                const commandSplit = text.match(regEx);
-                const command = commandSplit && commandSplit[1] && commandSplit[1].toLowerCase();
-                const arguents = commandSplit && commandSplit[2] && commandSplit[2].match(/(\S+)/g);
-                switch (command) {
-                    // WTF is errorhandeling that should be done on server doing in client? //AGR 2022-07-10
-                    case 'login':
-                    case 'adduser':
-                    case 'deluser':
-                        let error = '';
-                        switch (command) {
-                            case 'login':
-                            case 'adduser':
-                                if (!(arguents && arguents.length === 2 && arguents[0] && arguents[1])) {
-                                    error = command + ' need user and password';
-                                }
-                                break;
-                            case 'deluser':
-                                if (!(arguents && arguents.length === 1 && arguents[0])) {
-                                    error = command + ' need user';
-                                }
-                            default:
-                        }
-                        if (!error) {
-                            this.ws.send(`${command}: ${arguents.join(" ")}`);
-                        } else {
-                            this.terminalAdd(error);
-                        }
-                        break;
-                    case 'disconnect':
-                        this.ws.close();
-                        break;
-                    case 'quit':
-                        app.ipc.sendQuit();
-                        break;
-                    case 'save':
-                        app.ipc.sendSave();
-                        break;
-                    case 'load':
-                        app.ipc.sendLoad();
-                        break;
-                    case 'ping':
-                        this.ws.send("ping(" + new Date().toISOString() + ")");
-                        break;
-                    case 'connect':
-                        let wsURLarray = arguents[0].match(/^([wW][sS]{1,2})?(:\/+)?(\w*.*)/);
-                        let protocol = (/^[wW][sS]{1,2}/).test(wsURLarray[0]) ? wsURLarray[0] : 'ws';
-                        let URL = (/^[wW][sS]{1,2}/).test(wsURLarray[0]) ? wsURLarray[2] : wsURLarray[0];
-                        let wsURL = protocol + '://' + URL;
-                        this.ws = new WebSocket(wsURL);
-                        this.ws.onopen = () => {
-                            this.statusUpdate('Connected');
-                            this.terminalAdd('Connected to ' + this.ws.url, 'pagecontents_command');
-                        }
-                        this.ws.onclose = () => {
-                            this.statusUpdate('Disconnected');
-                            this.terminalAdd('Disconnected ' + this.ws.url, 'pagecontents_command');
-
-                        }
-                        this.ws.onmessage = (evt) => {
-                            switch (true) {
-                                case !!evt.data.match(/^pong\(.*\)/):
-                                    let pongvalue = evt.data.match(/^pong\((.*)\)/)[1];
-                                    let pingTime = (new Date()) - (new Date(pongvalue));
-                                    this.terminalAdd('Ping to server: ' + pingTime + 'ms', 'pagecontents_command');
-                                    break;
-                                default:
-                                    const message = '< ' + evt.data;
-                                    this.terminalAdd(message, 'pagecontents_inbound');
-                            }
-                        };
-
-                        break;
-                    default:
-                }
-            }
-            onCommandLineKeyPress(event) {
-                if (ifSpecialKey(event)) {
-                    event.preventDefault(); // Prevent newline on commandline
-                    console.log(event.type);
-                    switch (event.which || event.keyCode) {
-                        case 13: // enter
-                            console.log(this.commandlineDiv.innerText);
-                            this.commandLineInput(this.commandlineDiv.innerText);
-                            this.commandlineDiv.innerText = "";
-                            break;
-                        case 38: // arrow up
-                            if (this.commandlineDiv.innerText) {
-                                this.preHistory.push(this.commandlineDiv.innerText);
-                            }
-                            if (this.history.length > 0) {
-                                this.commandlineDiv.innerText = this.history.pop();
-                            } else {
-                                this.commandlineDiv.innerText = '';
-                            }
-                            commandEOL.call(this.commandlineDiv);
-                            break;
-                        case 40: // arrow down
-                            if (this.commandlineDiv.innerText) {
-                                this.history.push(this.commandlineDiv.innerText);
-                            }
-                            if (this.preHistory.length > 0) {
-                                this.commandlineDiv.innerText = this.preHistory.pop();
-                            } else {
-                                this.commandlineDiv.innerText = '';
-                            }
-                            commandEOL.call(this.commandlineDiv);
-                            break;
-                        default:
-                    }
-                }
-            }
-        }
-
-
-        // This will run whenever commandline get focus and move the cursor to the end of the line.
-        function commandEOL() {
-            if (this.childNodes.length > 0) {
-                const range = document.createRange();
-                const selection = window.getSelection();
-                range.setStart(this.lastChild, this.lastChild.length);
-                range.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(range);
-            }
-        }
-        // Return true if pressed key is any of specified special keys.
-        function ifSpecialKey(event) {
-            switch (event.which || event.keyCode) {
-                case 13: // enter
-                case 38: // arrow up
-                case 40: // arrow down
-                    return true;
-                    break;
-                default:
-                    return false;
-            }
+          }
         };
-    </script>
-</head>
+        // Create an observer instance linked to the callback function
+        const observer = new MutationObserver(callback);
+        // Start observing the target node for configured mutations
+        observer.observe(targetNode, config);
 
-<body>
+        //make sure the maindata window have a correct width.
+        window.addEventListener('resize', () => {
+          const newHeight = window.innerHeight - document.getElementsByClassName('pagefooter')[0].clientHeight;
+          document.getElementsByClassName('pagecontents')[0].style.height = newHeight + 'px';
+        });
+      };
+
+      class CommandlineImpretor {
+        constructor(commandlineDiv, terminalDiv, statusDiv) {
+          this.history = [];
+          this.commandHistory = [];
+          this.preHistory = [];
+          this.preCommandHistory = [];
+          this.language = 'en';
+          this.commandlineDiv = commandlineDiv;
+          this.terminalDiv = terminalDiv;
+          this.commandlineDiv.addEventListener('keydown', function (event) {
+            this.commandlineImpretor.onCommandLineKeyPress(event);
+          });
+          this.status;
+          this.statusDiv = statusDiv;
+          this.ws;
+        }
+        terminalAdd(text, classes = []) {
+          // If classes is set but is not an array, make it into an array.
+          if (classes) {
+            if (!Array.isArray(classes)) {
+              let new_classes = [];
+              new_classes[0] = classes;
+              classes = new_classes;
+            }
+          }
+          const divToAppend = document.createElement('div');
+          classes.forEach((element) => {
+            divToAppend.classList.add(element);
+          });
+          const textNode = document.createTextNode(text);
+          divToAppend.appendChild(textNode);
+          this.terminalDiv.appendChild(divToAppend);
+          return divToAppend;
+        }
+        commandLineInput(text) {
+          switch (true) {
+            case !!/^$/.test(text):
+              // Break if empty, ignore those commands.
+              break;
+            case !!/^\//.test(text):
+              console.log('Command recived');
+              this.history.push(...this.preHistory);
+              this.preHistory = [];
+              // Don't save those commands in history.
+              if (!/^\/(quit|load|save)/.test(text)) {
+                this.history.push(text);
+              }
+              this.runCommand(text);
+              break;
+            default:
+              console.log('text recived');
+              if (this.ws && this.ws.readyState && this.ws.readyState === this.ws.OPEN) {
+                this.ws.send(text);
+                this.terminalAdd('> ' + text, 'pagecontents_outbound');
+              }
+              this.history.push(...this.preHistory);
+              this.preHistory = [];
+              this.history.push(text);
+          }
+        }
+        // This will set the status as well as show it in the gui.
+        statusUpdate(status) {
+          this.status = status;
+          this.statusDiv.innerText = this.status;
+        }
+        runCommand(text) {
+          // const regEx = /^\/(\w+)(\s(\S*))?/
+          const regEx = /^\/?(\w+)\s?(.*)?/;
+          // 'command 1 2 3 4 5'
+          // commandSplit[0] entire string. 'command 1 2 3 4 5'
+          // commandSplit[1] 'command'
+          // commandSplit[2] ' 1 2 3 4 5'
+          // commandSplit[3] '1 2 3 4 5'
+          // commandSplit[4] '1'
+          // arguents[0] '1'
+          // arguents[1] '2'
+          // arguents[2] '3'
+          // arguents[3] '4'
+          // arguents[4] '5'
+
+          const commandSplit = text.match(regEx);
+          const command = commandSplit && commandSplit[1] && commandSplit[1].toLowerCase();
+          const arguents = commandSplit && commandSplit[2] && commandSplit[2].match(/(\S+)/g);
+          switch (command) {
+            // WTF is errorhandeling that should be done on server doing in client? //AGR 2022-07-10
+            case 'login':
+            case 'adduser':
+            case 'deluser':
+              let error = '';
+              switch (command) {
+                case 'login':
+                case 'adduser':
+                  if (!(arguents && arguents.length === 2 && arguents[0] && arguents[1])) {
+                    error = command + ' need user and password';
+                  }
+                  break;
+                case 'deluser':
+                  if (!(arguents && arguents.length === 1 && arguents[0])) {
+                    error = command + ' need user';
+                  }
+                default:
+              }
+              if (!error) {
+                this.ws.send(`${command}: ${arguents.join(' ')}`);
+              } else {
+                this.terminalAdd(error);
+              }
+              break;
+            case 'disconnect':
+              this.ws.close();
+              break;
+            case 'quit':
+              app.ipc.sendQuit();
+              break;
+            case 'save':
+              app.ipc.sendSave();
+              break;
+            case 'load':
+              app.ipc.sendLoad();
+              break;
+            case 'ping':
+              this.ws.send('ping(' + new Date().toISOString() + ')');
+              break;
+            case 'connect':
+              let wsURLarray = arguents[0].match(/^([wW][sS]{1,2})?(:\/+)?(\w*.*)/);
+              let protocol = /^[wW][sS]{1,2}/.test(wsURLarray[0]) ? wsURLarray[0] : 'ws';
+              let URL = /^[wW][sS]{1,2}/.test(wsURLarray[0]) ? wsURLarray[2] : wsURLarray[0];
+              let wsURL = protocol + '://' + URL;
+              this.ws = new WebSocket(wsURL);
+              this.ws.onopen = () => {
+                this.statusUpdate('Connected');
+                this.terminalAdd('Connected to ' + this.ws.url, 'pagecontents_command');
+              };
+              this.ws.onclose = () => {
+                this.statusUpdate('Disconnected');
+                this.terminalAdd('Disconnected ' + this.ws.url, 'pagecontents_command');
+              };
+              this.ws.onmessage = (evt) => {
+                switch (true) {
+                  case !!evt.data.match(/^pong\(.*\)/):
+                    let pongvalue = evt.data.match(/^pong\((.*)\)/)[1];
+                    let pingTime = new Date() - new Date(pongvalue);
+                    this.terminalAdd('Ping to server: ' + pingTime + 'ms', 'pagecontents_command');
+                    break;
+                  default:
+                    const message = '< ' + evt.data;
+                    this.terminalAdd(message, 'pagecontents_inbound');
+                }
+              };
+
+              break;
+            default:
+          }
+        }
+        onCommandLineKeyPress(event) {
+          if (ifSpecialKey(event)) {
+            event.preventDefault(); // Prevent newline on commandline
+            console.log(event.type);
+            switch (event.which || event.keyCode) {
+              case 13: // enter
+                console.log(this.commandlineDiv.innerText);
+                this.commandLineInput(this.commandlineDiv.innerText);
+                this.commandlineDiv.innerText = '';
+                break;
+              case 38: // arrow up
+                if (this.commandlineDiv.innerText) {
+                  this.preHistory.push(this.commandlineDiv.innerText);
+                }
+                if (this.history.length > 0) {
+                  this.commandlineDiv.innerText = this.history.pop();
+                } else {
+                  this.commandlineDiv.innerText = '';
+                }
+                commandEOL.call(this.commandlineDiv);
+                break;
+              case 40: // arrow down
+                if (this.commandlineDiv.innerText) {
+                  this.history.push(this.commandlineDiv.innerText);
+                }
+                if (this.preHistory.length > 0) {
+                  this.commandlineDiv.innerText = this.preHistory.pop();
+                } else {
+                  this.commandlineDiv.innerText = '';
+                }
+                commandEOL.call(this.commandlineDiv);
+                break;
+              default:
+            }
+          }
+        }
+      }
+
+      // This will run whenever commandline get focus and move the cursor to the end of the line.
+      function commandEOL() {
+        if (this.childNodes.length > 0) {
+          const range = document.createRange();
+          const selection = window.getSelection();
+          range.setStart(this.lastChild, this.lastChild.length);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }
+      // Return true if pressed key is any of specified special keys.
+      function ifSpecialKey(event) {
+        switch (event.which || event.keyCode) {
+          case 13: // enter
+          case 38: // arrow up
+          case 40: // arrow down
+            return true;
+            break;
+          default:
+            return false;
+        }
+      }
+    </script>
+  </head>
+
+  <body>
     <div class="pagecontainer">
-        <!-- Body of page (center take up all remaining space) -->
-        <div class="pagebody">
-            <div class="pagecontents">
-                <div id="pagecontentsdata" class="pagecontentsdata">Type /connect url to connect<br>
-                    Example:<br>
-                    /connect ws://127.0.0.1/wstest<br>
-                    /connect 127.0.0.1/test<br>
-                    /connect 127.0.0.1:8054/test<br>
-                    <br>
-                    Incomming data will have < before<br>
-                        Outgoing data will have > before
-                </div>
-                <div id="commandline" class="commandline" contentEditable="true" onfocus="commandEOL.call(this)"></div>
-            </div>
+      <!-- Body of page (center take up all remaining space) -->
+      <div class="pagebody">
+        <div class="pagecontents">
+          <div id="pagecontentsdata" class="pagecontentsdata">
+            Type /connect url to connect<br />
+            Example:<br />
+            /connect ws://127.0.0.1/wstest<br />
+            /connect 127.0.0.1/test<br />
+            /connect 127.0.0.1:8054/test<br />
+            <br />
+            Incomming data will have < before<br />
+            Outgoing data will have > before
+          </div>
+          <div id="commandline" class="commandline" contenteditable="true" onfocus="commandEOL.call(this)"></div>
         </div>
-        <!-- Foot of page (statusline at the end) -->
-        <div id="statusline" class="pagefooter">
-            Disconnected..
-        </div>
+      </div>
+      <!-- Foot of page (statusline at the end) -->
+      <div id="statusline" class="pagefooter">Disconnected..</div>
     </div>
     <script>
-        require('./renderer.js')
+      require('./renderer.js');
     </script>
-</body>
-
+  </body>
 </html>
