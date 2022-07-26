@@ -10,7 +10,7 @@
       app.instances = []; // think each server/channel tab
       app.activeInstance = {}; // Create the first instance
       app.instances.push(app.activeInstance); // add the first instance to the instance list
-      app.ipc = {}; // All IPC functions created by renderer.js will be here
+      app.ipc = window.main; // All IPC functions created by preload.js will be here
 
       document.addEventListener('DOMContentLoaded', function () {
         app.activeInstance.terminalDiv = document.getElementById('pagecontentsdata');
@@ -118,7 +118,9 @@
         }
         runCommand(text) {
           // const regEx = /^\/(\w+)(\s(\S*))?/
-          const regEx = /^\/?(\w+)\s?(.*)?/;
+          // const regEx = /^\/?(\w+)\s?(.*)?/;
+          // const regEx = /^\/?(\w+)\s?(\S*)*/i
+          const regEx = /^\/(\w+)((\s(\S*))+)/i
           // 'command 1 2 3 4 5'
           // commandSplit[0] entire string. 'command 1 2 3 4 5'
           // commandSplit[1] 'command'
@@ -154,7 +156,7 @@
                 default:
               }
               if (!error) {
-                this.ws.send(`${command}: ${arguents.join(' ')}`);
+                this.ws.send(`${command} ${arguents.join(' ')}`);
               } else {
                 this.terminalAdd(error);
               }
@@ -172,7 +174,7 @@
               app.ipc.sendLoad();
               break;
             case 'ping':
-              this.ws.send('ping(' + new Date().toISOString() + ')');
+              this.ws.send('ping ' + new Date().toISOString()) + arguents.join(' ');
               break;
             case 'connect':
               let wsURLarray = arguents[0].match(/^([wW][sS]{1,2})?(:\/+)?(\w*.*)/);

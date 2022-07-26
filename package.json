@@ -21,10 +21,10 @@
   "author": "Andreas Grip",
   "license": "GPL-3.0-or-later",
   "dependencies": {
-    "electron": "^10.4.7"
+    "electron": "^19.0.8"
   },
   "devDependencies": {
-    "electron-builder": "^22.11.7",
-    "electron-packager": "^15.2.0"
+    "electron-builder": "^23.1.0",
+    "electron-packager": "^15.5.1"
   }
 }
