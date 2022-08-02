@@ -120,7 +120,7 @@
           // const regEx = /^\/(\w+)(\s(\S*))?/
           // const regEx = /^\/?(\w+)\s?(.*)?/;
           // const regEx = /^\/?(\w+)\s?(\S*)*/i
-          const regEx = /^\/(\w+)((\s(\S*))+)/i
+          const regEx = /^\/(\w+)((\s(\S*))+)?/i
           // 'command 1 2 3 4 5'
           // commandSplit[0] entire string. 'command 1 2 3 4 5'
           // commandSplit[1] 'command'
@@ -156,7 +156,7 @@
                 default:
               }
               if (!error) {
-                this.ws.send(`${command} ${arguents.join(' ')}`);
+                this.ws.send(`/${command} ${arguents.join(' ')}`);
               } else {
                 this.terminalAdd(error);
               }
@@ -174,9 +174,10 @@
               app.ipc.sendLoad();
               break;
             case 'ping':
-              this.ws.send('ping ' + new Date().toISOString()) + arguents.join(' ');
+              this.ws.send('/ping ' + new Date().toISOString()) + arguents.join(' ');
               break;
             case 'connect':
+            case 'server':
               let wsURLarray = arguents[0].match(/^([wW][sS]{1,2})?(:\/+)?(\w*.*)/);
               let protocol = /^[wW][sS]{1,2}/.test(wsURLarray[0]) ? wsURLarray[0] : 'ws';
               let URL = /^[wW][sS]{1,2}/.test(wsURLarray[0]) ? wsURLarray[2] : wsURLarray[0];
@@ -205,6 +206,7 @@
 
               break;
             default:
+              if(this.ws) this.ws.send(`/${command} ${arguents ? arguents.join(' ') : ''}`);
           }
         }
         onCommandLineKeyPress(event) {
@@ -292,8 +294,5 @@
       <!-- Foot of page (statusline at the end) -->
       <div id="statusline" class="pagefooter">Disconnected..</div>
     </div>
-    <script>
-      require('./renderer.js');
-    </script>
   </body>
 </html>
