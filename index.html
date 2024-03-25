@@ -127,15 +127,15 @@
           // commandSplit[2] ' 1 2 3 4 5'
           // commandSplit[3] '1 2 3 4 5'
           // commandSplit[4] '1'
-          // arguents[0] '1'
-          // arguents[1] '2'
-          // arguents[2] '3'
-          // arguents[3] '4'
-          // arguents[4] '5'
+          // arguments[0] '1'
+          // args[1] '2'
+          // args[2] '3'
+          // args[3] '4'
+          // args[4] '5'
 
           const commandSplit = text.match(regEx);
           const command = commandSplit && commandSplit[1] && commandSplit[1].toLowerCase();
-          const arguents = commandSplit && commandSplit[2] && commandSplit[2].match(/(\S+)/g);
+          const args = commandSplit && commandSplit[2] && commandSplit[2].match(/(\S+)/g);
           switch (command) {
             // WTF is errorhandeling that should be done on server doing in client? //AGR 2022-07-10
             case 'login':
@@ -145,18 +145,18 @@
               switch (command) {
                 case 'login':
                 case 'adduser':
-                  if (!(arguents && arguents.length === 2 && arguents[0] && arguents[1])) {
+                  if (!(args && args.length === 2 && args[0] && args[1])) {
                     error = command + ' need user and password';
                   }
                   break;
                 case 'deluser':
-                  if (!(arguents && arguents.length === 1 && arguents[0])) {
+                  if (!(args && args.length === 1 && args[0])) {
                     error = command + ' need user';
                   }
                 default:
               }
               if (!error) {
-                this.ws.send(`/${command} ${arguents.join(' ')}`);
+                this.ws.send(`/${command} ${args.join(' ')}`);
               } else {
                 this.terminalAdd(error);
               }
@@ -174,11 +174,11 @@
               app.ipc.sendLoad();
               break;
             case 'ping':
-              this.ws.send('/ping ' + new Date().toISOString()) + arguents.join(' ');
+              this.ws.send('/ping ' + new Date().toISOString()) + args ?  args.join(' ') : '';
               break;
             case 'connect':
             case 'server':
-              let wsURLarray = arguents[0].match(/^([wW][sS]{1,2})?(:\/+)?(\w*.*)/);
+              let wsURLarray = args[0].match(/^([wW][sS]{1,2})?(:\/+)?(\w*.*)/);
               let protocol = /^[wW][sS]{1,2}/.test(wsURLarray[0]) ? wsURLarray[0] : 'ws';
               let URL = /^[wW][sS]{1,2}/.test(wsURLarray[0]) ? wsURLarray[2] : wsURLarray[0];
               let wsURL = protocol + '://' + URL;
@@ -205,8 +205,10 @@
               };
 
               break;
+            case 'msg':
+            this.terminalAdd('> @' + args.join(' '));
             default:
-              if(this.ws) this.ws.send(`/${command} ${arguents ? arguents.join(' ') : ''}`);
+              if(this.ws) this.ws.send(`/${command} ${args ? args.join(' ') : ''}`);
           }
         }
         onCommandLineKeyPress(event) {

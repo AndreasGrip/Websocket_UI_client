@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('main', {
-  quit: () => {
+  sendQuit: () => {
     ipcRenderer.send('quit', '');
   },
   sendSave: () => {
