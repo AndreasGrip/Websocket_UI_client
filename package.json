@@ -21,10 +21,6 @@
   "author": "Andreas Grip",
   "license": "GPL-3.0-or-later",
   "dependencies": {
-    "electron": "^19.0.8"
-  },
-  "devDependencies": {
-    "electron-builder": "^23.1.0",
-    "electron-packager": "^15.5.1"
+    "electron": "^29.1.5"
   }
 }
